@@ -6,6 +6,8 @@ const app = express();
 const dns = require("node:dns");
 const dnsPromises = dns.promises;
 const { MongoClient } = require("mongodb");
+const axios = require("axios");
+const psl = require("psl");
 
 // Basic Configuration
 const port = process.env.PORT || 3000;
@@ -46,9 +48,19 @@ app.get("/", function (req, res) {
   res.sendFile(process.cwd() + "/views/index.html");
 });
 
-// Your first API endpoint
-app.get("/api/hello", function (req, res) {
-  res.json({ greeting: "hello API" });
+app.get("/api/shorturl/:shorturl", async (req, res) => {
+  console.log("triggered");
+  const short_url = Number(req.params.shorturl);
+  if (isNaN(short_url)) {
+    res.json({ error: "Wrong format" });
+  }
+  const original_url = await db
+    .collection(collectionName)
+    .findOne({ short_url });
+  if (!!original_url) {
+    console.log("redirecting");
+    res.redirect(original_url.original_url);
+  }
 });
 
 app.post("/api/shorturl", express.json(), async function (req, res, next) {
@@ -60,12 +72,10 @@ app.post("/api/shorturl", express.json(), async function (req, res, next) {
     if (!isValidUrl(url) || !url.includes("http")) {
       throw 400;
     }
-    await dnsPromises
-      .lookup(url.split(":")[1].replace("//", ""), {})
-      .catch((err) => {
-        throw 400;
-      });
-    console.log(url.split(":")[1].replace("//", ""));
+    const fetch = await axios.get(url);
+    if (fetch.statusText !== "OK") {
+      throw 400;
+    }
     const collection = db.collection(collectionName);
     const filteredDocs = await collection.find({ original_url: url }).toArray();
     let short_url;
@@ -77,22 +87,12 @@ app.post("/api/shorturl", express.json(), async function (req, res, next) {
         .collection(collectionName)
         .insertOne({ original_url: url, short_url });
     }
-    res.json({ original_url: url, short_url: short_url });
+    res.json({
+      original_url: url,
+      short_url: short_url,
+    });
   } catch (error) {
     res.json({ error: "invalid url" });
-  }
-});
-
-app.get("/api/shorturl/:short", async (req, res, next) => {
-  const short_url = Number(req.params.short);
-  if (isNaN(short_url)) {
-    res.json({ error: "invalid url" });
-  }
-  const original_url = await db
-    .collection(collectionName)
-    .findOne({ short_url });
-  if (!!original_url) {
-    res.redirect(original_url.original_url);
   }
 });
 
