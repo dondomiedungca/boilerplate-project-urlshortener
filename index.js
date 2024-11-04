@@ -10,10 +10,9 @@ const axios = require("axios");
 const psl = require("psl");
 
 // Basic Configuration
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3003;
 
-const url =
-  "mongodb+srv://ddungca:password123!A@cluster0.ayhibtm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const url = "";
 const client = new MongoClient(url);
 const db = client.db("sample_mflix");
 const collectionName = "short_urls";
@@ -57,6 +56,7 @@ app.get("/api/shorturl/:shorturl", async (req, res) => {
   const original_url = await db
     .collection(collectionName)
     .findOne({ short_url });
+
   if (!!original_url) {
     console.log("redirecting");
     res.redirect(original_url.original_url);
